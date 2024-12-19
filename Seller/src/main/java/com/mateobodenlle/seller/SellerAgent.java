@@ -121,7 +121,7 @@ public class SellerAgent extends Agent {
 
                 // Buscamos la puja ganadora (primero con el último precio con pujas)
                 AID ganador = null;
-                for (ACLMessage propuesta : pujas) {
+                for (ACLMessage propuesta : pujas) { // todo modificar para notificar a los perdedores, para actualizar la interfaz gráfica
                     double precioPropuesta = Double.parseDouble(propuesta.getContent().split(": ")[1]);
                     if (precioPropuesta == (precioActual-2*incremento)) {
                         System.out.println("Puja: " + precioPropuesta);

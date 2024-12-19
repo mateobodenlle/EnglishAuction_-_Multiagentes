@@ -1,7 +1,6 @@
 package com.mateobodenlle.buyer;
 
 import jade.core.Agent;
-import jade.core.behaviours.Behaviour;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.lang.acl.ACLMessage;
 
@@ -15,6 +14,7 @@ public class BuyerAgent extends Agent {
 
         // Setup interfaz gráfica
         controller = BuyerController.getInstance();
+        controller.setAgente(this);
         controller.actualizarTope(String.valueOf(presupuestoMaximo));
 
         // Registrarse con el vendedor
@@ -65,6 +65,9 @@ public class BuyerAgent extends Agent {
                     double precioFinal = Double.parseDouble(contenido.split(": ")[1]);
                     controller.setLabelEstadoText("GANADOR:"+precioFinal);
                     controller.añadirMensajeExterno("Ganador!\n Puja final de: " + precioFinal);
+
+                    //todo, transacción de pago (simulada...)
+
                     doDelete();
                 } else {
                     block();
