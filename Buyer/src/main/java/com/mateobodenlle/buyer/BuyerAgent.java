@@ -63,7 +63,7 @@ public class BuyerAgent extends Agent {
                 } else if (msg != null && msg.getPerformative() == ACLMessage.ACCEPT_PROPOSAL) { // Si el vendedor acepta la puja
                     String contenido = msg.getContent();
                     double precioFinal = Double.parseDouble(contenido.split(": ")[1]);
-                    controller.setLabelEstadoText("GANADOR");
+                    controller.setLabelEstadoText("GANADOR:"+precioFinal);
                     controller.añadirMensajeExterno("Ganador!\n Puja final de: " + precioFinal);
                     doDelete();
                 } else {
@@ -73,5 +73,9 @@ public class BuyerAgent extends Agent {
         });
 
 
+    }
+
+    public void setTope(double tope) {
+        presupuestoMaximo = tope;
     }
 }

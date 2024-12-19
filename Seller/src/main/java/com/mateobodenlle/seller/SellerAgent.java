@@ -6,17 +6,14 @@ import jade.core.AID;
 import jade.core.behaviours.TickerBehaviour;
 import jade.lang.acl.ACLMessage;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 
 public class SellerAgent extends Agent {
     private double precioActual = 20.0;
     private double incremento = 10.0;
     private Set<AID> compradoresRegistrados = new HashSet<>();
-    private Map<AID, Double> pujas = new HashMap<>(); // Registro de pujas
+    private ArrayList<ACLMessage> pujas = new ArrayList<>(); // Registro de pujas
     private boolean subastaActiva = false;
 
     private SellerController controller;
@@ -57,112 +54,108 @@ public class SellerAgent extends Agent {
 
         // Comportamiento para enviar el precio actual a los compradores
         addBehaviour(new TickerBehaviour(this, 2000) { // Espera de 10 segundos entre ejecuciones
-            private boolean primeraEjecucion = true;
-
+            private Boolean pujaRecibida = true; // Empieza en true para no terminar en la primera ronda
             @Override
             protected void onTick() {
-                if (!subastaActiva) return;
-                if (primeraEjecucion) {
-                    System.out.println("Esperando antes de enviar el primer precio...");
-                    primeraEjecucion = false;
-                }
-
-                //Comprobamos si se ha llegado al precio máximo
-                else if (!comprobarPuja(precioActual-incremento)) {
-                    //System.out.println("Primera" + primeraEjecucion +". Compradores "+compradoresRegistrados.size());
-                    System.out.println("No hay pujas. Finalizando subasta.");
-                    finalizar();
+                // Esperamos a que se pulse el botón de empezar subasta
+                if (!subastaActiva) {
                     return;
                 }
 
-                if (!compradoresRegistrados.isEmpty()) {
-                    System.out.println("Enviando precio actual a los compradores...");
-                    ACLMessage cfp = new ACLMessage(ACLMessage.CFP);
-                    for (AID comprador : compradoresRegistrados) {
-                        cfp.addReceiver(comprador);
+                // Comprobamos si el precio anterior ha tenido pujas
+                if (!pujaRecibida) {
+                    finalizar();
+                    return;
+                }
+                // Actualizamos la interfaz gráfica
+                controller.actualizarPrecio(String.valueOf(precioActual));
+
+
+                // Enviamos CFP del precio a los compradores registrados
+                ACLMessage cfpPrecio = new ACLMessage(ACLMessage.CFP);
+                cfpPrecio.setContent("Precio: " + precioActual);
+                for (AID comprador : compradoresRegistrados) {
+                    cfpPrecio.addReceiver(comprador);
+                }
+                send(cfpPrecio);
+                pujaRecibida = false;
+
+                // Esperamos las respuestas de los compradores
+                ACLMessage respuesta = null;
+                for (AID _ : compradoresRegistrados){
+                    respuesta = blockingReceive(100);
+                    if (respuesta == null) {
+                        System.out.println("No se recibió respuesta de comprador.");
+                        continue;
                     }
-                    cfp.setContent("Precio actual: " + precioActual);
 
-                    //Actualizamos la UI
-                    controller.actualizarPrecio(String.valueOf(precioActual));
-                    send(cfp);
-                    System.out.println("Precio enviado: " + precioActual);
-
-                    // Recibir pujas
-                    ACLMessage respuesta = null;
-                    for (AID _ : compradoresRegistrados){
-                        respuesta = blockingReceive();
-
-                    //System.out.println("Recibiendo mensaje");
-                    //if (respuesta!=null)
-                        //System.out.println("Mensaje recibido: "+respuesta.getContent());
-                    if (respuesta != null && respuesta.getPerformative() == ACLMessage.PROPOSE) {
+                    if (respuesta!= null && respuesta.getPerformative() == ACLMessage.PROPOSE){
                         String contenido = respuesta.getContent();
                         if (contenido.split(":")[0].equals("Puja")) {
-                            double puja = Double.parseDouble(contenido.split(":")[1]);
-                            pujas.put(respuesta.getSender(), puja);
-                            //System.out.println("Puja recibida de " + msg.getSender().getLocalName() + ": " + puja);
+                            double puja = Double.parseDouble(contenido.split(": ")[1]);
+
+                            // Guardamos la puja
+                            pujas.add(respuesta);
+
+                            // Actualizamos la interfaz gráfica
                             controller.añadirPuja(respuesta.getSender().getLocalName(), puja);
-                        }
-                        else if (contenido.split(":")[0].equals("No puja")) {
-                            System.out.println("No puja recibida de " + respuesta.getSender().getLocalName());
-                        }
 
-
-                    } else { // todo, igual sobra
-                        block();
+                            pujaRecibida = true;
+                        }
+                        else {
+                            // Not understood
+                            ACLMessage reply = respuesta.createReply();
+                            reply.setPerformative(ACLMessage.NOT_UNDERSTOOD);
+                            send(reply);
+                        }
                     }
-                }
-
-
-                    precioActual += incremento; // Incrementar precio para la siguiente ronda
-                } else {
-                    primeraEjecucion = true;
-                    System.out.println("No hay compradores registrados todavía.");
-                }
             }
+                // Actualizamos el precio actual
+                precioActual+=incremento;
+                }
 
             private void finalizar() {
-                System.out.println("Subasta finalizada.");
+                ACLMessage pujaGanadora = null;
+                // Actualizamos la interfaz gráfica
                 controller.añadirPuja("No hay ninguna puja a: ", precioActual-incremento);
+
+                // Buscamos la puja ganadora (primero con el último precio con pujas)
                 AID ganador = null;
-                for (Map.Entry<AID, Double> entry : pujas.entrySet()) {
-                    if (entry.getValue() == precioActual-2*incremento) {
-                        System.out.println("Puja: " + entry.getValue());
-                        ganador = entry.getKey();
+                for (ACLMessage propuesta : pujas) {
+                    double precioPropuesta = Double.parseDouble(propuesta.getContent().split(": ")[1]);
+                    if (precioPropuesta == (precioActual-2*incremento)) {
+                        System.out.println("Puja: " + precioPropuesta);
+                        ganador = propuesta.getSender();
+                        pujaGanadora = propuesta;
                         break;
                     }
                 }
+
                 if (ganador != null) {
-                    System.out.println("El ganador es " + ganador.getLocalName() + " con una puja de " + (precioActual-2*incremento) + ".");
+                    // Actualizamos la interfaz gráfica
                     controller.añadirPuja("El ganador es " + ganador.getLocalName() + " con una puja de ", precioActual-2*incremento);
-                    notificarGanador(ganador, precioActual-2*incremento);
+
+                    // Notificamos al ganador
+                    notificarGanador(pujaGanadora, precioActual-2*incremento);
                 } else {
+                    // Si falla algo, no hay ganador
                     System.out.println("No hubo ganador.");
                 }
-                System.out.println("Precio final: " + (precioActual-2*incremento));
+
+                // Actualizamos la interfaz gráfica
                 controller.precioFinal(String.valueOf(precioActual-2*incremento));
                 //precioActual-=2*incremento;
                 doDelete();
             }
 
-            private void notificarGanador(AID ganador, double v) {
-                ACLMessage inform = new ACLMessage(ACLMessage.CFP);
-                inform.addReceiver(ganador);
-                inform.setContent("Has ganado la subasta con una puja de: " + v);
-                send(inform);
+            private void notificarGanador(ACLMessage pujaGanadora, double v) {
+                ACLMessage respuesta = pujaGanadora.createReply();
+                respuesta.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
+                respuesta.setContent("Has ganado la subasta con una puja de: " + v);
+                send(respuesta);
             }
         });
 
 
-    }
-
-    public Boolean comprobarPuja(double puja) {
-        for (Map.Entry<AID, Double> entry : pujas.entrySet()) {
-            if (entry.getValue() == puja) {
-                return true;
-            }
-    }
-        return false;
     }
 }
