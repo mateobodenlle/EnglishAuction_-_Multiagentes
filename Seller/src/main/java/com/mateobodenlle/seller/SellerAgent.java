@@ -130,6 +130,14 @@ public class SellerAgent extends Agent {
                         break;
                     }
                 }
+                for (ACLMessage propuesta : pujas) {
+                    if (!propuesta.equals(pujaGanadora)) {
+                        ACLMessage respuesta = propuesta.createReply();
+                        respuesta.setPerformative(ACLMessage.REJECT_PROPOSAL);
+                        respuesta.setContent("Has perdido la subasta con una puja de: " + Double.parseDouble(propuesta.getContent().split(": ")[1]));
+                        send(respuesta);
+                    }
+                }
 
                 if (ganador != null) {
                     // Actualizamos la interfaz gráfica
@@ -153,6 +161,14 @@ public class SellerAgent extends Agent {
                 respuesta.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
                 respuesta.setContent("Has ganado la subasta con una puja de: " + v);
                 send(respuesta);
+            }
+
+            private void iniciarTransaccion(ACLMessage pujaGanadora) {
+                // Iniciar transacción
+                ACLMessage transaccion = new ACLMessage(ACLMessage.REQUEST);
+                transaccion.setContent("Transacción de " + pujaGanadora.getSender().getLocalName() + " por " + (precioActual-incremento));
+                transaccion.addReceiver(pujaGanadora.getSender());
+                send(transaccion);
             }
         });
 

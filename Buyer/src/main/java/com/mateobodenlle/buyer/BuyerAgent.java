@@ -7,7 +7,6 @@ import jade.lang.acl.ACLMessage;
 public class BuyerAgent extends Agent {
     private double presupuestoMaximo = 80.0;
     private BuyerController controller;
-
     @Override
     protected void setup() {
         System.out.println("Comprador " + getLocalName() + " iniciado.");
@@ -66,10 +65,23 @@ public class BuyerAgent extends Agent {
                     controller.setLabelEstadoText("GANADOR:"+precioFinal);
                     controller.añadirMensajeExterno("Ganador!\n Puja final de: " + precioFinal);
 
-                    //todo, transacción de pago (simulada...)
+
+                    //todo, transacción de pago (simulada...). Iniciativa del vendedor
+                    ACLMessage transaccion = blockingReceive();
+
+                    controller.añadirMensajeExterno("Petición de transacción del vendedor: " + transaccion.getContent());
+
 
                     doDelete();
-                } else {
+
+                }else if (msg != null && msg.getPerformative() == ACLMessage.REJECT_PROPOSAL) { // Si el vendedor rechaza la puja
+                    String contenido = msg.getContent();
+                    double precioFinal = Double.parseDouble(contenido.split(": ")[1]);
+                    controller.setLabelEstadoText("PERDEDOR:" + precioFinal);
+                    controller.añadirMensajeExterno("PERDEDOR!\n Puja final de: " + precioFinal);
+
+                    //doDelete();
+                }else {
                     block();
                 }
             }
