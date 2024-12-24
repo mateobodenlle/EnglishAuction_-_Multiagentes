@@ -46,11 +46,18 @@ public class SellerAgent extends Agent {
                         compradoresRegistrados.add(nuevoComprador);
                         controller.añadirComprador(nuevoComprador.getLocalName());
                     }
+                    if (msg.getPerformative() == ACLMessage.CANCEL) {
+                        AID comprador = msg.getSender();
+                        System.out.println("Comprador eliminado: " + comprador.getLocalName());
+                        compradoresRegistrados.remove(comprador);
+                        controller.eliminarComprador(comprador.getLocalName());
+                    }
                 } else {
                     block();
                 }
             }
         });
+
 
         // Comportamiento para enviar el precio actual a los compradores
         addBehaviour(new TickerBehaviour(this, 2000) { // Espera de 10 segundos entre ejecuciones
@@ -123,7 +130,7 @@ public class SellerAgent extends Agent {
                 AID ganador = null;
                 for (ACLMessage propuesta : pujas) { // todo modificar para notificar a los perdedores, para actualizar la interfaz gráfica
                     double precioPropuesta = Double.parseDouble(propuesta.getContent().split(": ")[1]);
-                    if (precioPropuesta == (precioActual-2*incremento)) {
+                    if (precioPropuesta == (precioActual-2*incremento) && compradoresRegistrados.contains(propuesta.getSender())) {
                         System.out.println("Puja: " + precioPropuesta);
                         ganador = propuesta.getSender();
                         pujaGanadora = propuesta;
@@ -131,7 +138,7 @@ public class SellerAgent extends Agent {
                     }
                 }
                 for (ACLMessage propuesta : pujas) {
-                    if (!propuesta.equals(pujaGanadora) && !propuesta.getSender().equals(ganador)) {
+                    if (!propuesta.equals(pujaGanadora) && !propuesta.getSender().equals(ganador) && compradoresRegistrados.contains(propuesta.getSender())) {
                         ACLMessage respuesta = propuesta.createReply();
                         respuesta.setPerformative(ACLMessage.REJECT_PROPOSAL);
                         respuesta.setContent("Has perdido la subasta con una puja de: " + Double.parseDouble(propuesta.getContent().split(": ")[1]));

@@ -90,4 +90,11 @@ public class BuyerAgent extends Agent {
     public void setTope(double tope) {
         presupuestoMaximo = tope;
     }
+
+    public void salidaDinamica() {
+        ACLMessage msg = new ACLMessage(ACLMessage.CANCEL);
+        msg.addReceiver(new jade.core.AID("Vendedor", jade.core.AID.ISLOCALNAME));
+        msg.setContent("Salida dinámica");
+        send(msg);
+    }
 }
