@@ -131,7 +131,7 @@ public class SellerAgent extends Agent {
                     }
                 }
                 for (ACLMessage propuesta : pujas) {
-                    if (!propuesta.equals(pujaGanadora)) {
+                    if (!propuesta.equals(pujaGanadora) && !propuesta.getSender().equals(ganador)) {
                         ACLMessage respuesta = propuesta.createReply();
                         respuesta.setPerformative(ACLMessage.REJECT_PROPOSAL);
                         respuesta.setContent("Has perdido la subasta con una puja de: " + Double.parseDouble(propuesta.getContent().split(": ")[1]));
@@ -145,6 +145,7 @@ public class SellerAgent extends Agent {
 
                     // Notificamos al ganador
                     notificarGanador(pujaGanadora, precioActual-2*incremento);
+                    iniciarTransaccion(pujaGanadora);
                 } else {
                     // Si falla algo, no hay ganador
                     System.out.println("No hubo ganador.");

@@ -80,7 +80,8 @@ public class BuyerAgent extends Agent {
                     controller.setLabelEstadoText("PERDEDOR:" + precioFinal);
                     controller.añadirMensajeExterno("PERDEDOR!\n Puja final de: " + precioFinal);
 
-                    //doDelete();
+                    // todo que no se repita esto
+                    doDelete();
                 }else {
                     block();
                 }
