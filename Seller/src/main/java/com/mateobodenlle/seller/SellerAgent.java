@@ -167,7 +167,7 @@ public class SellerAgent extends Agent {
             private void iniciarTransaccion(ACLMessage pujaGanadora) {
                 // Iniciar transacción
                 ACLMessage transaccion = new ACLMessage(ACLMessage.REQUEST);
-                transaccion.setContent("Transacción de " + pujaGanadora.getSender().getLocalName() + " por " + (precioActual-incremento));
+                transaccion.setContent("Transacción de\n" + pujaGanadora.getSender().getLocalName() + " por " + (precioActual-incremento));
                 transaccion.addReceiver(pujaGanadora.getSender());
                 send(transaccion);
             }

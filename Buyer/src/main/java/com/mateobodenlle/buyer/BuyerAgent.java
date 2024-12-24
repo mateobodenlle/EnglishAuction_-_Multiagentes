@@ -52,11 +52,11 @@ public class BuyerAgent extends Agent {
                         controller.añadirPuja(String.valueOf(precioActual));
                         System.out.println(getLocalName() + " envió puja: " + precioActual);
                     } else { // Si no está dentro del presupuesto, no puja.
-                        ACLMessage reply = msg.createReply();
-                        reply.setPerformative(ACLMessage.PROPOSE);
-                        reply.setContent("No puja: " + precioActual);
-                        send(reply);
-                        System.out.println(getLocalName() + " no puja. Precio demasiado alto.");
+//                        ACLMessage reply = msg.createReply();
+//                        reply.setPerformative(ACLMessage.PROPOSE);
+//                        reply.setContent("No puja: " + precioActual);
+//                        send(reply);
+//                        System.out.println(getLocalName() + " no puja. Precio demasiado alto.");
                     }
 
                 } else if (msg != null && msg.getPerformative() == ACLMessage.ACCEPT_PROPOSAL) { // Si el vendedor acepta la puja
@@ -65,11 +65,8 @@ public class BuyerAgent extends Agent {
                     controller.setLabelEstadoText("GANADOR:"+precioFinal);
                     controller.añadirMensajeExterno("Ganador!\n Puja final de: " + precioFinal);
 
-
-                    //todo, transacción de pago (simulada...). Iniciativa del vendedor
                     ACLMessage transaccion = blockingReceive();
-
-                    controller.añadirMensajeExterno("Petición de transacción del vendedor: " + transaccion.getContent());
+                    controller.añadirMensajeExterno("Petición de transacción de\nvendedor: " + transaccion.getContent());
 
 
                     doDelete();
@@ -80,7 +77,6 @@ public class BuyerAgent extends Agent {
                     controller.setLabelEstadoText("PERDEDOR:" + precioFinal);
                     controller.añadirMensajeExterno("PERDEDOR!\n Puja final de: " + precioFinal);
 
-                    // todo que no se repita esto
                     doDelete();
                 }else {
                     block();
