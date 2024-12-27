@@ -90,7 +90,7 @@ public class SellerAgent extends Agent {
                 // Esperamos las respuestas de los compradores
                 ACLMessage respuesta = null;
                 for (AID _ : compradoresRegistrados){
-                    respuesta = blockingReceive(100);
+                    respuesta = blockingReceive(50);
                     if (respuesta == null) {
                         System.out.println("No se recibió respuesta de comprador.");
                         continue;
@@ -128,7 +128,7 @@ public class SellerAgent extends Agent {
 
                 // Buscamos la puja ganadora (primero con el último precio con pujas)
                 AID ganador = null;
-                for (ACLMessage propuesta : pujas) { // todo modificar para notificar a los perdedores, para actualizar la interfaz gráfica
+                for (ACLMessage propuesta : pujas) {
                     double precioPropuesta = Double.parseDouble(propuesta.getContent().split(": ")[1]);
                     if (precioPropuesta == (precioActual-2*incremento) && compradoresRegistrados.contains(propuesta.getSender())) {
                         System.out.println("Puja: " + precioPropuesta);
@@ -181,5 +181,15 @@ public class SellerAgent extends Agent {
         });
 
 
+    }
+
+    public void gestionarSubasta(String selectedItem) {
+    }
+
+    public void nuevaSubasta() {
+    }
+
+    public String[] getSubastas() { //todo
+        return null;
     }
 }

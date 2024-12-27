@@ -4,7 +4,12 @@ import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.lang.acl.ACLMessage;
 
+import java.util.HashMap;
+
 public class BuyerAgent extends Agent {
+    // Subastas
+    private HashMap<String, Boolean> subastas= new HashMap<>(); // Nombre subasta y si se está suscrito o no
+    private String subastaActual = "";
     private double presupuestoMaximo = 80.0;
     private BuyerController controller;
     @Override
@@ -59,7 +64,16 @@ public class BuyerAgent extends Agent {
 //                        System.out.println(getLocalName() + " no puja. Precio demasiado alto.");
                     }
 
-                } else if (msg != null && msg.getPerformative() == ACLMessage.ACCEPT_PROPOSAL) { // Si el vendedor acepta la puja
+                } else if (msg != null && msg.getPerformative() == ACLMessage.INFORM) { // Si el vendedor informa de una nueva subasta
+                    String contenido = msg.getContent();
+                    String[] partes = contenido.split(": ");
+                    String nombreSubasta = partes[0];
+                    Boolean activa = Boolean.parseBoolean(partes[1]);
+                    subastas.put(nombreSubasta, activa);
+                    System.out.println("Subasta " + nombreSubasta + " activa: " + activa);
+
+
+                }else if (msg != null && msg.getPerformative() == ACLMessage.ACCEPT_PROPOSAL) { // Si el vendedor acepta la puja
                     String contenido = msg.getContent();
                     double precioFinal = Double.parseDouble(contenido.split(": ")[1]);
                     controller.setLabelEstadoText("GANADOR:"+precioFinal);
@@ -89,6 +103,10 @@ public class BuyerAgent extends Agent {
 
     public void setTope(double tope) {
         presupuestoMaximo = tope;
+        controller.addSubastaNoSuscrita("Sub1");
+        controller.addSubastaNoSuscrita("Sub2");
+        controller.addSubastaNoSuscrita("Sub3");
+        controller.addSubastaNoSuscrita("Sub4");
     }
 
     public void salidaDinamica() {
@@ -96,5 +114,17 @@ public class BuyerAgent extends Agent {
         msg.addReceiver(new jade.core.AID("Vendedor", jade.core.AID.ISLOCALNAME));
         msg.setContent("Salida dinámica");
         send(msg);
+    }
+    public void suscribirSubasta(String subasta) {
+        subastas.put(subasta, true);
+    }
+    public void desuscribirSubasta(String subasta) {
+        subastas.put(subasta, false);
+    }
+    public boolean isSuscrito(String subasta) {
+        return subastas.get(subasta);
+    }
+    public void seleccionarSubasta(String subasta) {
+        subastaActual = subasta;
     }
 }
