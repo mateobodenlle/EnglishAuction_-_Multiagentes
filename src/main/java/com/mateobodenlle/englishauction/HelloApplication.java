@@ -9,6 +9,7 @@ import jade.core.Profile;
 import jade.core.ProfileImpl;
 
 import java.io.IOException;
+import com.mateobodenlle.englishauction.Subasta;
 
 public class HelloApplication extends Application {
     @Override

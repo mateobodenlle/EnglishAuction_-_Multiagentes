@@ -9,6 +9,10 @@ plugins {
 group 'com.mateobodenlle'
 version '1.0-SNAPSHOT'
 
+jar{
+  enabled = true
+}
+
 repositories {
   mavenCentral()
   flatDir(dirs: 'libs')
