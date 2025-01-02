@@ -53,7 +53,7 @@ public class Subasta {
         mensajesExternos.add(msg);
     }
 
-    public enum Estados {ACTIVA, FINALIZADA, CANCELADA};
+    public enum Estados {INACTIVA, ACTIVA, FINALIZADA, CANCELADA};
     private double tope = 0;
 
     /**
@@ -62,9 +62,13 @@ public class Subasta {
      * @param precioInicial
      */
     public Subasta(String nombre, double precioInicial) {
+        this.estado = Estados.INACTIVA;
+        this.mensajesExternos = new ArrayList();
+        this.tope = 0.0;
         this.nombre = nombre;
         this.precioInicial = precioInicial;
         this.precioActual = precioInicial;
+
     }
 
     /**
@@ -72,6 +76,9 @@ public class Subasta {
      * @param nombre Nombre de la subasta
      */
     public Subasta(String nombre, double precioActual, double tope) {
+        this.estado = Estados.INACTIVA;
+        this.mensajesExternos = new ArrayList();
+        this.tope = 0.0;
         this.nombre = nombre;
         this.tope = tope;
         this.precioActual = precioActual;

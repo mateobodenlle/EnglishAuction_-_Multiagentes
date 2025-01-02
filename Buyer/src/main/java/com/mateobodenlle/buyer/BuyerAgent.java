@@ -72,9 +72,11 @@ public class BuyerAgent extends Agent {
                     controller.añadirMensajeExterno("Perdedor!\n Puja final de: " + precioFinal);
                 }
 
+                controller.changeName(subasta.getNombre(), subasta.getNombre() + " (PERDIDA)");
+
                 subasta.setEstado(Subasta.Estados.FINALIZADA);
                 subasta.addMensajeExterno(msg);
-                doDelete();
+                //doDelete();
             }
 
             /**
@@ -97,6 +99,7 @@ public class BuyerAgent extends Agent {
                     controller.añadirMensajeExterno("Ganador!\n Puja final de: " + precioFinal);
                     controller.setGanador(getLocalName());
                 }
+                controller.changeName(subasta.getNombre(), subasta.getNombre() + " (GANADA)");
 
                 subasta.setEstado(Subasta.Estados.FINALIZADA);
                 subasta.setGanador(getAID());
@@ -118,19 +121,47 @@ public class BuyerAgent extends Agent {
                 String contenido = msg.getContent();
                 String[] partes = contenido.split(": ");
                 String nombreSubasta = partes[0];
-                //Partes[1] a veces viene con corchetes, se eliminan
-                if (partes[1].startsWith("["))
-                {
-                    partes[1] = partes[1].substring(1, partes[1].length()-1);
+                // Distinguimos entre añadido de subasta(s): Subastas... o eliminado de subasta: Eliminar:... o Finalizar...
+                if (nombreSubasta.equals("Subastas")) {
+                    //Partes[1] a veces viene con corchetes, se eliminan
+                    if (partes[1].startsWith("[")) {
+                        partes[1] = partes[1].substring(1, partes[1].length() - 1);
+                    }
+                    String[] subastasM = partes[1].split(", ");
+                    for (String subasta : subastasM) {
+                        // Si no empieza por "Subasta" no es una subasta, se salta
+                        if (!subasta.startsWith("Subasta")) continue;
+                        subastas.put(new Subasta(subasta, 0, presupuestoMaximo), false); // Se sabe si está activa o no al suscribirse todo
+                        controller.addSubastaNoSuscrita(subasta); //todo ver que mensaje manda el vendedor con "subasta"
+                    }
                 }
-                String[] subastasM = partes[1].split(", ");
-                for (String subasta : subastasM)
-                {
+                // Si empieza por Finalizar:, es para avisarnos de una eliminación
+                else if (partes[0].equals("Finalizar")) {
                     // Si no empieza por "Subasta" no es una subasta, se salta
-                    if (!subasta.startsWith("Subasta")) continue;
-                    subastas.put(new Subasta(subasta,0,presupuestoMaximo), false); // Se sabe si está activa o no al suscribirse todo
-                    controller.addSubastaNoSuscrita(subasta); //todo ver que mensaje manda el vendedor con "subasta"
+                    nombreSubasta = partes[1];
+                    if (!nombreSubasta.startsWith("Subasta")) return;
+                    for (Subasta s : subastas.keySet()) {
+                        if (s.getNombre().equals(nombreSubasta)) {
+                            s.setEstado(Subasta.Estados.FINALIZADA);
+                            controller.changeName(nombreSubasta, nombreSubasta + " (FINALIZADA)");
+                            break;
+                        }
+                    }
                 }
+
+                else if (partes[0].equals("Eliminar")) { // todo revisar si fuciona pq ni idea
+                    // Si no empieza por "Subasta" no es una subasta, se salta
+                    nombreSubasta = partes[1];
+                    if (!nombreSubasta.startsWith("Subasta")) return;
+                    for (Subasta s : subastas.keySet()) {
+                        if (s.getNombre().equals(nombreSubasta)) {
+                            subastas.remove(s);
+                            controller.eliminarSubasta(nombreSubasta);
+                            break;
+                        }
+                    }
+                }
+
             }
 
             /**
@@ -185,7 +216,8 @@ public class BuyerAgent extends Agent {
             private void pujar(ACLMessage msg, double precioActual, Subasta subasta) {
                 ACLMessage reply = msg.createReply();
                 reply.setPerformative(ACLMessage.PROPOSE);
-                reply.setContent("Puja: " + precioActual);
+                // Formato de mensaje: Subasta N: Puja: X
+                reply.setContent(subasta.getNombre() + ": Puja: " + String.valueOf(precioActual));
                 send(reply);
 
                 subasta.addPuja(reply);
@@ -213,6 +245,7 @@ public class BuyerAgent extends Agent {
             }
         }
         if (sub == null) {
+            System.out.println("Subasta no encontrada. ERROR AL SUSCRIBIR");
             throw new IllegalArgumentException("Subasta no encontrada");
         }
 
@@ -232,6 +265,7 @@ public class BuyerAgent extends Agent {
             }
 
             if (reply.getContent().split(": ").length != 2) {
+                System.out.println("Formato de mensaje incorrecto. ERROR AL SUSCRIBIR");
                 throw new IllegalArgumentException("Formato de mensaje incorrecto");
             }
             reply.getContent();
@@ -246,6 +280,8 @@ public class BuyerAgent extends Agent {
             sub.setEstado(Subasta.Estados.valueOf(estado));
             sub.actualizarPrecio(Double.parseDouble(precioActual));
         }
+
+        System.out.println("Subasta suscrita con éxito: " + subasta);
     }
     public void desuscribirSubasta(String subasta) {
         Subasta sub = null;

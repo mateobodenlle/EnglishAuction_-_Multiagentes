@@ -35,6 +35,7 @@ public class SellerAgent extends Agent {
     // Llamado desde el hilo de FX
     public void iniciarSubasta() {
         subastaSeleccionada.setActivacion(true);
+        subastaSeleccionada.setEstado(Subasta.Estados.ACTIVA);
         controller.actualizarPrecio(String.valueOf(precioActual));
     }
 
@@ -64,6 +65,7 @@ public class SellerAgent extends Agent {
                     else if (msg.getPerformative() == ACLMessage.PROPOSE) {
                         // Si el comprador envía una puja
                         colaMensajes.add(msg);
+                        System.out.println("Añadiendo puja a cola: " + msg.getContent());
                     }
                     else if (msg.getPerformative() == ACLMessage.SUBSCRIBE) { // Si es una subscripción
                         System.out.println("Subscripción a subasta: " + msg.getContent());
@@ -83,9 +85,14 @@ public class SellerAgent extends Agent {
                 for (Subasta s : subastas) {
                     if (s.getNombre().equals(msg.getContent())) {
                         s.getCompradores().remove(msg.getSender());
+                        // Si está seleccionada actualizamos la lista del controlador
+                        if (s.equals(subastaSeleccionada)) {
+                            controller.setCompradoresSubasta(s);
+                        }
                         break;
                     }
                 }
+
             }
 
             private void suscripcionSubasta(ACLMessage msg) {
@@ -98,10 +105,16 @@ public class SellerAgent extends Agent {
                         break;
                     }
                 }
-
+                if (subasta == null) {
+                    System.out.println("Subasta no encontrada: ERRIR AL SUSCRIBIR. " + msg.getContent());
+                    return;
+                }
                 if (subasta != null) {
                     subasta.getCompradores().add(msg.getSender());
                     System.out.println("Comprador añadido a subasta: " + msg.getContent());
+                    // Si está seleccionada actualizamos la lista del controlador
+                    if (subasta.equals(subastaSeleccionada))
+                        controller.setCompradoresSubasta(subasta);
                     // Mandamos info al comprador. Formato del mensaje: "CSubastaN: estado, precioActual"
                     ACLMessage reply = msg.createReply();
                     reply.setPerformative(ACLMessage.CONFIRM);
@@ -137,7 +150,12 @@ public class SellerAgent extends Agent {
                 for (Subasta subasta : subastasCopy) {
                     System.out.println("Gestionando subasta: " + subasta.getNombre());
                     // Esperamos a que se pulse el botón de empezar subasta
-                    if (!subasta.getEstado().equals(Subasta.Estados.ACTIVA)) continue;
+                    if (!subasta.getEstado().equals(Subasta.Estados.ACTIVA))
+                    {
+                        System.out.println("Subasta no activa: " + subasta.getNombre());
+                        continue;
+
+                    }
                     System.out.println("Subasta activa: " + subasta.getNombre());
 
                     // Comprobamos si el precio anterior ha tenido pujas
@@ -154,12 +172,16 @@ public class SellerAgent extends Agent {
 
                     // Enviamos el precio a los compradores
                     envioPrecio(subasta);
+
+                    // Marcamos preeliminarmente que no se han recibido pujas
                     subasta.setPujaRecibida(false);
+                    System.out.println("Marcando subasta como no recibida: " + subasta.getNombre());
 
                     // Esperamos por la respuesta
-                    block(50);
+//                    block(50);
 
                     // Recorremos la cola de mensajes, procesando los relativos a esta subasta
+                    System.out.println("Procesando cola de mensajes para subasta: " + subasta.getNombre());
                     procesarColaMensajes(subasta);
 
                     // Actualizamos el precio actual
@@ -169,7 +191,7 @@ public class SellerAgent extends Agent {
                 for (Subasta s : subastasCopy) {
                     for (Subasta s2 : subastas) {
                         if (s.equals(s2)) {
-                            s2 = s;
+                            s2 = s; // todo revisar
                             break;
                         }
                     }
@@ -178,11 +200,13 @@ public class SellerAgent extends Agent {
 
             private void procesarColaMensajes(Subasta subasta) {
                 for (ACLMessage mensaje : colaMensajes) {
-                    // Mensajes con formato "SubastaN: Puja: X"
+                    // Mensajes con formato "Subasta N: Puja: X"
                     if (mensaje.getPerformative() == ACLMessage.PROPOSE && mensaje.getContent().split(":")[0].equals(subasta.getNombre())) {
                         String contenido = mensaje.getContent();
+                        System.out.println("Procesando mensaje: " + contenido);
                         if (contenido.split(":")[1].equals("Puja")) {
                             double puja = Double.parseDouble(contenido.split(": ")[2]);
+                            System.out.println("Mensaje de puja: " + puja);
 
                             // Guardamos la puja
                             subasta.getPujas().add(mensaje);
@@ -300,7 +324,8 @@ public class SellerAgent extends Agent {
                     controller.precioFinal(String.valueOf(subasta.getPrecioActual()-2*incremento));
 
                 subasta.setEstado(Subasta.Estados.FINALIZADA);
-                eliminarSubasta(subasta);
+                //eliminarSubasta(subasta);
+                estadoFinalizadoSubasta(subasta);
             }
 
             private void notificarPerdedor(Subasta subasta, ACLMessage propuesta) {
@@ -386,8 +411,44 @@ public class SellerAgent extends Agent {
         }
     }
     public void eliminarSubasta(Subasta subasta){
+        controller.listSubastas.getItems().remove(subasta.getNombre());
+        // Avisamos a los compradores de la eliminación de la subasta
+        avisoEliminarSubasta(subasta);
         subastas.remove(subasta);
-        // todo
+    }
+
+    private void estadoFinalizadoSubasta(Subasta subasta) {
+        // Cambiamos el nombre de la subasta para indicar que ha finalizado
+        System.out.println("Cambiando nombre de subasta: " + subasta.getNombre());
+        controller.changeName(subasta.getNombre(), subasta.getNombre() + " (FINALIZADA)");
+        avisoFinalizarSubasta(subasta);
+
+    }
+
+    private void avisoEliminarSubasta(Subasta subasta) {
+        // Enviamos un mensaje a los compradores registrados
+        ACLMessage inform = new ACLMessage(ACLMessage.INFORM);
+        // Formato de mensaje "Eliminar: nombreSubasta"
+        inform.setContent("Eliminar: " + subasta.getNombre());
+        for (AID comprador : compradoresRegistrados) {
+            inform.addReceiver(comprador);
+        }
+        send(inform);
+        System.out.println("Eliminar: " + subasta.getNombre());
+    }
+
+    private void avisoFinalizarSubasta(Subasta subasta) {
+        // Enviamos un mensaje a los compradores registrados
+        ACLMessage inform = new ACLMessage(ACLMessage.INFORM);
+        // Formato de mensaje "Finalizar: nombreSubasta"
+        inform.setContent("Finalizar: " + subasta.getNombre());
+        for (AID comprador : compradoresRegistrados) {
+            // Si está suscrito, ya se le ha avisado (perdedor/ganador)
+            if (!subasta.getCompradores().contains(comprador))
+                inform.addReceiver(comprador);
+        }
+        send(inform);
+        System.out.println("Finalizar: " + subasta.getNombre());
     }
 
     /**

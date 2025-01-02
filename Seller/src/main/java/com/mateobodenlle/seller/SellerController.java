@@ -166,4 +166,13 @@ public class SellerController {
             Platform.runLater(() -> vBoxPujas.getChildren().add(label));
         }
     }
+
+    public void changeName(String nombre, String s) {
+        //Cambiamos el nombre de la subasta en la lista
+        if (listSubastas.getItems().contains(nombre)) {
+            int index = listSubastas.getItems().indexOf(nombre);
+            // Cambiamos el nombre
+            Platform.runLater(() -> listSubastas.getItems().set(index, s));
+        }
+    }
 }
