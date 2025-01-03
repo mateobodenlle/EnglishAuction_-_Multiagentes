@@ -149,6 +149,7 @@ public class BuyerAgent extends Agent {
 
                 else if (partes[0].equals("Eliminar")) { // todo revisar si fuciona pq ni idea
                     // Si no empieza por "Subasta" no es una subasta, se salta
+                    System.out.println("Eliminando subasta");
                     nombreSubasta = partes[1];
                     if (!nombreSubasta.startsWith("Subasta")) return;
                     for (Subasta s : subastas.keySet()) {
