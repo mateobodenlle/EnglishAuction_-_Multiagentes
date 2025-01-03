@@ -56,6 +56,8 @@ public class SellerController {
         labelPrecioActual.setText("Cargando precio actual...");
         sellerAgent.iniciarSubasta();
         buttonEmpezarSubasta.setDisable(true);
+        textFieldPrecioInicial.setDisable(true);
+        labelEstado.setText("ACTIVA");
     }
 
     /**

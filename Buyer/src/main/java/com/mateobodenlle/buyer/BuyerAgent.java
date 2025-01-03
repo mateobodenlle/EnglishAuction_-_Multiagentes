@@ -48,7 +48,7 @@ public class BuyerAgent extends Agent {
                     // Si el vendedor rechaza la puja, es que no se ha ganado
                     gestionarMensajeReject_Proposal(msg);
                 }else {
-                    block();
+//                    block();
                 }
             }
 
@@ -97,7 +97,6 @@ public class BuyerAgent extends Agent {
                 if (subastaActual.equals(subasta.getNombre())) {
                     controller.setLabelEstadoText("GANADOR:"+precioFinal);
                     controller.añadirMensajeExterno("Ganador!\n Puja final de: " + precioFinal);
-                    controller.setGanador(getLocalName());
                 }
                 controller.changeName(subasta.getNombre(), subasta.getNombre() + " (GANADA)");
 
@@ -105,10 +104,9 @@ public class BuyerAgent extends Agent {
                 subasta.setGanador(getAID());
                 subasta.addMensajeExterno(msg);
 
+                System.out.println("Bloquing receive por ganar");
                 ACLMessage transaccion = blockingReceive();
                 controller.añadirMensajeExterno("Petición de transacción de\nvendedor: " + transaccion.getContent());
-
-                doDelete();
             }
 
             /**
@@ -256,6 +254,7 @@ public class BuyerAgent extends Agent {
         send(msg);
 
         // Recibimos mensaje de confirmación de suscripción
+        System.out.println("Bloquing receive por suscribir");
         ACLMessage reply = blockingReceive();
         if (reply.getPerformative() == ACLMessage.CONFIRM) {
             // Formato del mensaje recibido: "CSubastaN: estado, precioActual"
