@@ -46,39 +46,100 @@ public class SellerAgent extends Agent {
         // Controlador FX
         controller = SellerController.getInstance();
         controller.setSellerAgent(this);
-        // Comportamiento para manejar registros de nuevos compradores
+
         /**
-         * Comportamiento cíclico para recibir mensajes de registro de nuevos compradores.
-         * Gestiona registro global, suscripción y desuscripción a cada subasta, y añade pujas a la cola
+         * Comportamiento para enviar precios y gestionar pujas
          */
-        addBehaviour(new CyclicBehaviour() {
-            // Recibir mensajes de registro y salida de nuevos compradores
+        addBehaviour(new TickerBehaviour(this, 2000) { // Espera de 10 segundos entre ejecuciones
             @Override
-            public void action() {
-                ACLMessage msg = receive();
-                if (msg != null) {
-                    System.out.println("Mensaje recibido: " + msg.getContent());
-                    // Si es un mensaje de registro global
-                    if (msg.getPerformative() == ACLMessage.INFORM) {
-                        registroGlobal(msg);
+            protected void onTick() {
+                //Iteramos sobre una copia de las subastas, para no incurrir en modificación concurrente
+                ArrayList<Subasta> subastasCopy = new ArrayList<>(SellerAgent.this.subastas);
+                for (Subasta subasta : subastasCopy) {
+                    System.out.println("Gestionando subasta: " + subasta.getNombre());
+                    // Esperamos a que se pulse el botón de empezar subasta
+                    if (!subasta.getEstado().equals(Subasta.Estados.ACTIVA)) {
+                        System.out.println("Subasta no activa: " + subasta.getNombre());
+                        continue;
                     }
-                    else if (msg.getPerformative() == ACLMessage.PROPOSE) {
-                        // Si el comprador envía una puja
-                        colaMensajes.add(msg);
-                        System.out.println("Añadiendo puja a cola: " + msg.getContent());
-                    }
-                    else if (msg.getPerformative() == ACLMessage.SUBSCRIBE) { // Si es una subscripción
-                        System.out.println("Subscripción a subasta: " + msg.getContent());
-                        suscripcionSubasta(msg);
-                    } else if (msg.getPerformative() == ACLMessage.CANCEL) { // Si es una cancelación
-                        desuscripcionSubasta(msg);
+                    System.out.println("Subasta activa: " + subasta.getNombre());
 
+                    // Comprobamos si el precio anterior ha tenido pujas
+                    if (!subasta.getPujaRecibida()) {
+                        finalizar(subasta); // todo rework
+                        System.out.println("Subasta finalizada: " + subasta.getNombre());
+                        continue;
                     }
+                    System.out.println("Subasta con pujas o primera vuelta: " + subasta.getNombre());
 
-                } else {
-                    block(); //todo quitar
+                    // Actualizamos la interfaz gráfica si la subasta está seleccionada
+                    if (subasta.equals(subastaSeleccionada))
+                        controller.actualizarPrecio(String.valueOf(subasta.getPrecioActual()));
+
+                    // Enviamos el precio a los compradores
+                    envioPrecio(subasta);
+
+                    // Marcamos preeliminarmente que no se han recibido pujas
+                    subasta.setPujaRecibida(false);
+                    System.out.println("Marcando subasta como no recibida: " + subasta.getNombre());
+
+                    // Esperamos por la respuesta
+//                    block(50);
+                    recibirMensajesPendiente();
+
+
+                    // Recorremos la cola de mensajes, procesando los relativos a esta subasta
+                    System.out.println("Procesando cola de mensajes para subasta: " + subasta.getNombre());
+                    procesarColaMensajes(subasta);
+
+                    // Actualizamos el precio actual
+                    subasta.actualizarPrecio(incremento);
+                }
+                // Actualizamos los cambios los elementos de subastasCopy en subastas
+                for (Subasta s : subastasCopy) {
+                    for (Subasta s2 : subastas) {
+                        if (s.equals(s2)) {
+                            s2 = s; // todo revisar
+                            break;
+                        }
+                    }
                 }
             }
+
+            /**
+             * Gestionar mensajes en cola del agente
+             */
+            private void recibirMensajesPendiente() {
+//                block(25);
+                while (true){
+                    ACLMessage msg = receive();
+                    if (msg != null) {
+                        System.out.println("Mensaje recibido: " + msg.getContent());
+                        // Si es un mensaje de registro global
+                        if (msg.getPerformative() == ACLMessage.INFORM) {
+                            registroGlobal(msg);
+                        }
+                        else if (msg.getPerformative() == ACLMessage.PROPOSE) {
+                            // Si el comprador envía una puja
+                            colaMensajes.add(msg);
+                            System.out.println("Añadiendo puja a cola: " + msg.getContent());
+                        }
+                        else if (msg.getPerformative() == ACLMessage.SUBSCRIBE) { // Si es una subscripción
+                            System.out.println("Subscripción a subasta: " + msg.getContent());
+                            suscripcionSubasta(msg);
+                        } else if (msg.getPerformative() == ACLMessage.CANCEL) { // Si es una cancelación
+                            desuscripcionSubasta(msg);
+
+                        }
+
+                    } else {
+                        return;
+                    }
+                }
+            }
+
+            // Funciones de gestión de mensajes recibidos
+
 
             private void desuscripcionSubasta(ACLMessage msg) {
                 // Buscamos la subasta y eliminamos al comprador
@@ -135,68 +196,9 @@ public class SellerAgent extends Agent {
                 subastas.addReceiver(nuevoComprador);
                 send(subastas);
             }
-        });
 
-        /**
-         * Comportamiento para enviar precios y gestionar pujas
-         */
-        addBehaviour(new TickerBehaviour(this, 2000) { // Espera de 10 segundos entre ejecuciones
-            @Override
-            protected void onTick() {
-                // Se gestiona una a una cada subasta, por orden de forma NO concurrente. todo buscar alternativa
 
-                //Iteramos sobre una copia de las subastas, para no incurrir en modificación concurrente
-                ArrayList<Subasta> subastasCopy = new ArrayList<>(SellerAgent.this.subastas);
-                for (Subasta subasta : subastasCopy) {
-                    System.out.println("Gestionando subasta: " + subasta.getNombre());
-                    // Esperamos a que se pulse el botón de empezar subasta
-                    if (!subasta.getEstado().equals(Subasta.Estados.ACTIVA))
-                    {
-                        System.out.println("Subasta no activa: " + subasta.getNombre());
-                        continue;
-
-                    }
-                    System.out.println("Subasta activa: " + subasta.getNombre());
-
-                    // Comprobamos si el precio anterior ha tenido pujas
-                    if (!subasta.getPujaRecibida()) {
-                        finalizar(subasta); // todo rework
-                        System.out.println("Subasta finalizada: " + subasta.getNombre());
-                        continue;
-                    }
-                    System.out.println("Subasta con pujas o primera vuelta: " + subasta.getNombre());
-
-                    // Actualizamos la interfaz gráfica si la subasta está seleccionada
-                    if (subasta.equals(subastaSeleccionada))
-                        controller.actualizarPrecio(String.valueOf(subasta.getPrecioActual()));
-
-                    // Enviamos el precio a los compradores
-                    envioPrecio(subasta);
-
-                    // Marcamos preeliminarmente que no se han recibido pujas
-                    subasta.setPujaRecibida(false);
-                    System.out.println("Marcando subasta como no recibida: " + subasta.getNombre());
-
-                    // Esperamos por la respuesta
-//                    block(50);
-
-                    // Recorremos la cola de mensajes, procesando los relativos a esta subasta
-                    System.out.println("Procesando cola de mensajes para subasta: " + subasta.getNombre());
-                    procesarColaMensajes(subasta);
-
-                    // Actualizamos el precio actual
-                    subasta.actualizarPrecio(incremento);
-                }
-                // Actualizamos los cambios los elementos de subastasCopy en subastas
-                for (Subasta s : subastasCopy) {
-                    for (Subasta s2 : subastas) {
-                        if (s.equals(s2)) {
-                            s2 = s; // todo revisar
-                            break;
-                        }
-                    }
-                }
-            }
+            // Funciones de gestión de subastas
 
             private void procesarColaMensajes(Subasta subasta) {
                 for (ACLMessage mensaje : colaMensajes) {
