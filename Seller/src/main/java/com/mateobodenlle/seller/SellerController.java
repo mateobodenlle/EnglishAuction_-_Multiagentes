@@ -68,7 +68,9 @@ public class SellerController {
     @FXML
     protected void onButtonGestionarClick() {
         sellerAgent.gestionarSubasta(listSubastas.getSelectionModel().getSelectedItem());
-        Platform.runLater(() -> buttonEmpezarSubasta.setDisable(false));
+        // Solo si está sin empezar
+        if (sellerAgent.getSubastaSeleccionada().getPrecioActual() == sellerAgent.getSubastaSeleccionada().getPrecioInicial())
+            Platform.runLater(() -> buttonEmpezarSubasta.setDisable(false));
         Platform.runLater(() -> textFieldPrecioInicial.setDisable(false));
     }
 
