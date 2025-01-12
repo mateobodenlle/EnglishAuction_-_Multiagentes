@@ -59,8 +59,8 @@ public class SellerAgent extends Agent {
                     }
 
                     // Comprobamos si el precio anterior ha tenido pujas
-                    if (condicionFinal(subasta)) {
-                        finalizar(subasta); // todo rework
+                    if (subasta.getPujaRecibida() < 2) {
+                        finalizar(subasta);
                         continue;
                     }
 
@@ -72,7 +72,7 @@ public class SellerAgent extends Agent {
                     envioPrecio(subasta);
 
                     // Marcamos preliminarmente que no se han recibido pujas
-                    subasta.setPujaRecibida(false);
+                    subasta.setPujaRecibida(0);
 
                     recibirMensajesPendiente();
 
@@ -84,21 +84,6 @@ public class SellerAgent extends Agent {
                 }
             }
 
-            private boolean condicionFinal(Subasta subasta) {
-                // Si no hay pujas
-                if (!subasta.getPujaRecibida()) return true;
-
-                // Si solo hay una puja a ese precio
-                int pujas = 0;
-                for (ACLMessage propuesta : subasta.getPujas()) {
-                    // Mensajes con formato "SubastaN: Puja: X"
-                    double precioPropuesta = Double.parseDouble(propuesta.getContent().split(": ")[2]);
-                    if (precioPropuesta == subasta.getPrecioActual()-subasta.getIncremento()) {
-                        pujas++;
-                    }
-                }
-                return pujas == 1;
-            }
 
             /**
              * Gestionar mensajes en cola del agente
@@ -145,22 +130,18 @@ public class SellerAgent extends Agent {
             }
 
             private void suscripcionSubasta(ACLMessage msg) {
-                System.out.println("Subscripción a subasta: " + msg.getContent());
                 Subasta subasta = null;
                 for (Subasta s : subastas) {
                     if (s.getNombre().equals(msg.getContent())) {
                         subasta = s;
-                        System.out.println("Subasta encontrada: " + s.getNombre());
                         break;
                     }
                 }
                 if (subasta == null) {
-                    System.out.println("Subasta no encontrada: ERRIR AL SUSCRIBIR. " + msg.getContent());
                     return;
                 }
-                if (subasta != null) {
+                else {
                     subasta.getCompradores().add(msg.getSender());
-                    System.out.println("Comprador añadido a subasta: " + msg.getContent());
                     // Si está seleccionada actualizamos la lista del controlador
                     if (subasta.equals(subastaSeleccionada))
                         controller.setCompradoresSubasta(subasta);
@@ -178,7 +159,7 @@ public class SellerAgent extends Agent {
                 compradoresRegistrados.add(nuevoComprador);
                 controller.añadirComprador(nuevoComprador.getLocalName());
 
-                // Le enviamos la lista de subastas todo gestionar recibo de subastas
+                // Le enviamos la lista de subastas
                 ACLMessage Msubastas = new ACLMessage(ACLMessage.INFORM);
                 // Formato de mensaje "Subastas: [nombreSubasta, nombreSubasta2...]"
                 String stringSubastas = "[";
@@ -238,7 +219,7 @@ public class SellerAgent extends Agent {
                             if (subasta.equals(subastaSeleccionada))
                                 controller.añadirPuja(mensaje.getSender().getLocalName(), puja);
 
-                            subasta.setPujaRecibida(true);
+                            subasta.setPujaRecibida(subasta.getPujaRecibida()+1);
                             consumidos.add(mensaje);
                         }
                         else {
@@ -252,39 +233,6 @@ public class SellerAgent extends Agent {
                 colaMensajes.removeAll(consumidos);
             }
 
-            private void recibirYGestionarPujas(Subasta subasta) {// todo remove
-                // Esperamos las respuestas de los compradores
-                ACLMessage respuesta = null;
-                for (AID _ : subasta.getCompradores()){
-                    respuesta = blockingReceive(50);
-                    if (respuesta == null) {
-                        System.out.println("No se recibió respuesta de compradores para esta subasta.");
-                        return;
-                    }
-
-                    if (respuesta.getPerformative() == ACLMessage.PROPOSE){
-                        String contenido = respuesta.getContent();
-                        if (contenido.split(":")[0].equals("Puja")) {
-                            double puja = Double.parseDouble(contenido.split(": ")[1]);
-
-                            // Guardamos la puja
-                            subasta.getPujas().add(respuesta);
-
-                            // Actualizamos la interfaz gráfica si la subasta está seleccionada
-                            if (subasta.equals(subastaSeleccionada))
-                                controller.añadirPuja(respuesta.getSender().getLocalName(), puja);
-
-                            subasta.setPujaRecibida(true);
-                        }
-                        else {
-                            // Not understood
-                            ACLMessage reply = respuesta.createReply();
-                            reply.setPerformative(ACLMessage.NOT_UNDERSTOOD);
-                            send(reply);
-                        }
-                    }
-            }
-            }
 
             /**
              * Envía el precio actual a los compradores suscritos a la subasta
@@ -311,23 +259,27 @@ public class SellerAgent extends Agent {
              */
             private void finalizar(Subasta subasta){ // todo comprbar tras rework
                 // Avisamos que no hay pujas a este precio
-                controller.añadirPuja("No hay ninguna puja a: ", subasta.getPrecioActual()-subasta.getIncremento());
+                if (subasta.getPujaRecibida() == 0)
+                    controller.añadirPuja("No hay ninguna puja a: ", subasta.getPrecioActual()-subasta.getIncremento());
+                else
+                    controller.añadirPuja("Puja final a: ", subasta.getPrecioActual()-subasta.getIncremento());
 
                 // Actualizamos el estado de la subasta
                 subasta.setEstado(Subasta.Estados.FINALIZADA);
+                Double precioVictoria = subasta.getPrecioActual()-(2-subasta.getPujaRecibida())*subasta.getIncremento();
+                subasta.setPrecioActual(precioVictoria);
+
                 // Buscamos la puja ganadora (primero con el último precio con pujas)
                 ACLMessage pujaGanadora = findPujaGanadora(subasta);
                 AID ganador;
                 if (pujaGanadora != null) {
                     ganador = pujaGanadora.getSender();
 
-                // Actualizamos datos de la subasta. Ganador, precio...
+                    // Actualizamos datos de la subasta. Ganador, precio...
                     subasta.setGanador(ganador);
                 } else {
                     ganador = null;
                 }
-                subasta.setPrecioActual(subasta.getPrecioActual()-subasta.getIncremento());
-
                 // Notificamos
                 notificarResultado(subasta, pujaGanadora, ganador);
 
@@ -337,7 +289,7 @@ public class SellerAgent extends Agent {
 
                 // Actualizamos gráfico
                 if (subasta.equals(subastaSeleccionada)) {
-                    controller.precioFinal(String.valueOf(subasta.getPrecioActual() - subasta.getIncremento()));
+                    controller.precioFinal(String.valueOf(precioVictoria));
                     Platform.runLater(() -> controller.labelEstado.setText("FINALIZADA"));
                     if (ganador != null)
                         Platform.runLater(() -> controller.labelGanador.setText("Ganador: " + ganador.getLocalName()));
@@ -364,8 +316,7 @@ public class SellerAgent extends Agent {
                     double precioPropuesta = Double.parseDouble(propuesta.getContent().split(": ")[2]);
                     // Comprobamos si la puja es la ganadora (primer puja a máximo precio) y si el comprador está registrado en la subasta
 
-                    if (precioPropuesta == (subasta.getPrecioActual()-2*subasta.getIncremento())){
-                        System.out.println("PUJA GANADORA: " + propuesta.getContent());
+                    if (precioPropuesta == subasta.getPrecioActual()){
                         // Cuando un comprador se desuscribe NO se anulan sus pujas.
                         pujaGanadora = propuesta;
                         break;
@@ -376,27 +327,21 @@ public class SellerAgent extends Agent {
 
 
             private void notificarPerdedor(Subasta subasta, ACLMessage pujaGanadora, AID comprador) {
-                for (ACLMessage propuesta : subasta.getPujas()) {
-                    if (propuesta.getSender().equals(comprador) && !propuesta.equals(pujaGanadora)) {
-                        ACLMessage respuesta = propuesta.createReply();
-                        respuesta.setPerformative(ACLMessage.REJECT_PROPOSAL);
-                        // Formato del mensaje: "SubastaN: Has perdido la subasta con una puja de: X"
-                        respuesta.setContent(subasta.getNombre()+": Has perdido la subasta con una puja de: " + Double.parseDouble(propuesta.getContent().split(": ")[2]));
-                        send(respuesta);
-                    }
-                }
+                ACLMessage respuesta = new ACLMessage(ACLMessage.INFORM);
+                respuesta.addReceiver(comprador);
+                // Formato del mensaje: "PERDER: SubastaN: Has perdido la subasta.
+                respuesta.setContent("PERDER: "+subasta.getNombre()+": Has perdido la subasta. Precio final de: " + subasta.getPrecioActual());
+                send(respuesta);
             }
 
             private void notificarGanador(Subasta subasta, ACLMessage pujaGanadora) {
-                // Extraemos precio
-                double v = Double.parseDouble(pujaGanadora.getContent().split(": ")[2]);
+                //Mensaje inform de ganador
+                ACLMessage notifGanador = new ACLMessage(ACLMessage.INFORM);
+                notifGanador.addReceiver(pujaGanadora.getSender());
 
-                ACLMessage respuesta = pujaGanadora.createReply();
-                respuesta.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
-
-                // Formato del mensaje: "SubastaN: Has ganado la subasta con una puja de: X"
-                respuesta.setContent(subasta.getNombre() + ": Has ganado la subasta con una puja de: " + v);
-                send(respuesta);
+                // Formato del mensaje: "GANAR: SubastaN: Has ganado la subasta con una puja de: X"
+                notifGanador.setContent("GANAR: "+subasta.getNombre() + ": Has ganado la subasta con una puja de: " + subasta.getPrecioActual());
+                send(notifGanador);
             }
 
             /**

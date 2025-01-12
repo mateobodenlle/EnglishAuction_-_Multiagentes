@@ -192,9 +192,9 @@ public class SellerController {
     }
 
     public void setCompradoresSubasta(Subasta subastaSeleccionada) {
-        listCompradoresSubasta.getItems().clear();
+        Platform.runLater(() -> listCompradoresSubasta.getItems().clear());
         for (AID comprador : subastaSeleccionada.getCompradores()) {
-            listCompradoresSubasta.getItems().add(comprador.getLocalName());
+            Platform.runLater(() -> listCompradoresSubasta.getItems().add(comprador.getLocalName()));
         }
     }
 

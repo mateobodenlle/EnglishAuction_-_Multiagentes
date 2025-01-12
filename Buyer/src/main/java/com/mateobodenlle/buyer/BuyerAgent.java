@@ -122,10 +122,8 @@ public class BuyerAgent extends Agent {
                         }
                     }
                 }
-
                 else if (partes[0].equals("Eliminar")) { // todo revisar si fuciona pq ni idea
                     // Si no empieza por "Subasta" no es una subasta, se salta
-                    System.out.println("Eliminando subasta");
                     nombreSubasta = partes[1];
                     if (!nombreSubasta.startsWith("Subasta")) return;
                     for (Subasta s : subastas.keySet()) {
@@ -135,6 +133,51 @@ public class BuyerAgent extends Agent {
                             break;
                         }
                     }
+                }
+                else if (partes[0].equals("GANAR")){
+                    // Formato del mensaje recibido: "GANAR: SubastaN: Has ganado la subasta con una puja de: X"
+                    double precioFinal = Double.parseDouble(contenido.split(": ")[3]);
+                    Subasta subasta = getSubasta(contenido.split(": ")[1]);
+
+                    if (subasta == null) {
+                        throw new IllegalArgumentException("Subasta no encontrada");
+                    }
+
+                    subasta.setPrecioActual(precioFinal);
+
+                    if (subastaActual.equals(subasta.getNombre())) {
+                        controller.setLabelEstadoText("GANADOR:"+precioFinal);
+                        controller.añadirMensajeExterno("Ganador!\n Puja final de: " + precioFinal);
+                    }
+                    controller.changeName(subasta.getNombre(), subasta.getNombre() + " (GANADA)");
+
+                    subasta.setEstado(Subasta.Estados.FINALIZADA);
+                    subasta.setGanador(getAID());
+                    subasta.addMensajeExterno(msg);
+
+                    // Blocking receive para recibir la transacción
+                    ACLMessage transaccion = blockingReceive();
+                    controller.añadirMensajeExterno("Petición de transacción de\nvendedor: " + transaccion.getContent());
+                }
+                else if (partes[0].equals("PERDER")){
+                    // Formato del mensaje recibido: "PERDER: SubastaN: Has perdido la subasta. Precio final de: X"
+                    double precioFinal = Double.parseDouble(contenido.split(": ")[3]);
+                    Subasta subasta = getSubasta(contenido.split(": ")[1]);
+
+                    if (subasta == null) {
+                        throw new IllegalArgumentException("Subasta no encontrada");
+                    }
+                    subasta.setPrecioActual(precioFinal);
+
+                    if (subastaActual.equals(subasta.getNombre())) {
+                        controller.setLabelEstadoText("PERDEDOR:"+precioFinal);
+                        controller.añadirMensajeExterno("Perdedor!\n Puja final de: " + precioFinal);
+                    }
+
+                    controller.changeName(subasta.getNombre(), subasta.getNombre() + " (PERDIDA)");
+
+                    subasta.setEstado(Subasta.Estados.FINALIZADA);
+                    subasta.addMensajeExterno(msg);
                 }
 
             }

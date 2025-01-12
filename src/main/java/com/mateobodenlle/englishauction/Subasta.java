@@ -16,7 +16,7 @@ public class Subasta {
     private Set<AID> participantes = new HashSet<>();
     private ArrayList<ACLMessage> pujas = new ArrayList<>(); // Registro de pujas
     private boolean subastaActiva = false;
-    private boolean pujaRecibida = true;
+    private Integer pujaRecibida = 2;
     private Estados estado = Estados.ACTIVA;
     private ArrayList<ACLMessage> mensajesExternos = new ArrayList<>();
     private AID ganador; // Ganador de la subasta en cada momento
@@ -101,11 +101,11 @@ public class Subasta {
         this.incremento = incremento;
     }
 
-    public boolean getPujaRecibida() {
+    public Integer getPujaRecibida() {
         return pujaRecibida;
     }
 
-    public void setPujaRecibida(boolean b) {
+    public void setPujaRecibida(Integer b) {
         this.pujaRecibida = b;
     }
 
