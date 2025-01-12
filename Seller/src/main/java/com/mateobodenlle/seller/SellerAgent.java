@@ -257,7 +257,7 @@ public class SellerAgent extends Agent {
              * Inicia la transacción de compra
              * @param subasta
              */
-            private void finalizar(Subasta subasta){ // todo comprbar tras rework
+            private void finalizar(Subasta subasta){
                 // Avisamos que no hay pujas a este precio
                 if (subasta.getPujaRecibida() == 0)
                     controller.añadirPuja("No hay ninguna puja a: ", subasta.getPrecioActual()-subasta.getIncremento());
