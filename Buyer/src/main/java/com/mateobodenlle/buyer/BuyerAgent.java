@@ -58,25 +58,13 @@ public class BuyerAgent extends Agent {
              * @param msg
              */
             private void gestionarMensajeReject_Proposal(ACLMessage msg) {
+                // Mensaje de formato SubastaN: REJECT: X
                 String contenido = msg.getContent();
-                // Formato del mensaje recibido: "SubastaN: Has perdido la subasta con una puja de: X"
-                double precioFinal = Double.parseDouble(contenido.split(": ")[2]);
+                double precio = Double.parseDouble(contenido.split(": ")[2]);
                 Subasta subasta = getSubasta(contenido.split(": ")[0]);
-
-                if (subasta == null) {
-                    throw new IllegalArgumentException("Subasta no encontrada");
-                }
-
                 if (subastaActual.equals(subasta.getNombre())) {
-                    controller.setLabelEstadoText("PERDEDOR:"+precioFinal);
-                    controller.añadirMensajeExterno("Perdedor!\n Puja final de: " + precioFinal);
+                    controller.setLabelEstadoText("No vas ganando:"+precio);
                 }
-
-                controller.changeName(subasta.getNombre(), subasta.getNombre() + " (PERDIDA)");
-
-                subasta.setEstado(Subasta.Estados.FINALIZADA);
-                subasta.addMensajeExterno(msg);
-                //doDelete();
             }
 
             /**
@@ -85,28 +73,16 @@ public class BuyerAgent extends Agent {
              * @param msg
              */
             private void gestionarMensjeAccept_Proposal(ACLMessage msg) {
+                // Mensaje de formato SubastaN: ACCEPT: X
                 String contenido = msg.getContent();
-                // Formato del mensaje recibido: "SubastaN: Has ganado la subasta con una puja de: X"
-                double precioFinal = Double.parseDouble(contenido.split(": ")[2]);
+                double precio = Double.parseDouble(contenido.split(": ")[2]);
                 Subasta subasta = getSubasta(contenido.split(": ")[0]);
 
-                if (subasta == null) {
-                    throw new IllegalArgumentException("Subasta no encontrada");
-                }
+                subasta.setGanador(getAID());
 
                 if (subastaActual.equals(subasta.getNombre())) {
-                    controller.setLabelEstadoText("GANADOR:"+precioFinal);
-                    controller.añadirMensajeExterno("Ganador!\n Puja final de: " + precioFinal);
+                    controller.setLabelEstadoText("Vas ganando:"+precio);
                 }
-                controller.changeName(subasta.getNombre(), subasta.getNombre() + " (GANADA)");
-
-                subasta.setEstado(Subasta.Estados.FINALIZADA);
-                subasta.setGanador(getAID());
-                subasta.addMensajeExterno(msg);
-
-                System.out.println("Bloquing receive por ganar");
-                ACLMessage transaccion = blockingReceive();
-                controller.añadirMensajeExterno("Petición de transacción de\nvendedor: " + transaccion.getContent());
             }
 
             /**

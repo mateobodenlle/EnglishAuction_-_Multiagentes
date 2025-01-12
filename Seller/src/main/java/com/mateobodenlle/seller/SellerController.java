@@ -114,7 +114,7 @@ public class SellerController {
     protected void onButtonSetPrecioInicialClick() {
         sellerAgent.setPrecioInicial(Double.parseDouble(textFieldPrecioInicial.getText()));
         // Actualizamos label de precio actual
-        labelPrecioActual.setText("Precio actual: " + textFieldPrecioInicial.getText());
+        labelPrecioActual.setText("Precio inicial: " + textFieldPrecioInicial.getText());
     }
 
     /**

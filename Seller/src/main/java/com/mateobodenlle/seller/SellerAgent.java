@@ -5,7 +5,6 @@ import jade.core.AID;
 import jade.core.behaviours.TickerBehaviour;
 import jade.lang.acl.ACLMessage;
 
-import java.lang.reflect.Array;
 import java.util.*;
 
 // Importamos la clase subasta compartida entre seller y buyer
@@ -60,7 +59,7 @@ public class SellerAgent extends Agent {
                     }
 
                     // Comprobamos si el precio anterior ha tenido pujas
-                    if (!subasta.getPujaRecibida()) {
+                    if (condicionFinal(subasta)) {
                         finalizar(subasta); // todo rework
                         continue;
                     }
@@ -69,20 +68,36 @@ public class SellerAgent extends Agent {
                     if (subasta.equals(subastaSeleccionada))
                         controller.actualizarPrecio(String.valueOf(subasta.getPrecioActual()));
 
-                    // Enviamos el precio a los compradores
+                    // Enviamos el precio a los compradores suscritos
                     envioPrecio(subasta);
 
-                    // Marcamos preeliminarmente que no se han recibido pujas
+                    // Marcamos preliminarmente que no se han recibido pujas
                     subasta.setPujaRecibida(false);
 
                     recibirMensajesPendiente();
 
                     // Recorremos la cola de mensajes, procesando los relativos a esta subasta
-                    procesarColaMensajes(subasta);
+                    procesarColaPujas(subasta);
 
                     // Actualizamos el precio actual
                     subasta.actualizarPrecio(subasta.getIncremento());
                 }
+            }
+
+            private boolean condicionFinal(Subasta subasta) {
+                // Si no hay pujas
+                if (!subasta.getPujaRecibida()) return true;
+
+                // Si solo hay una puja a ese precio
+                int pujas = 0;
+                for (ACLMessage propuesta : subasta.getPujas()) {
+                    // Mensajes con formato "SubastaN: Puja: X"
+                    double precioPropuesta = Double.parseDouble(propuesta.getContent().split(": ")[2]);
+                    if (precioPropuesta == subasta.getPrecioActual()-subasta.getIncremento()) {
+                        pujas++;
+                    }
+                }
+                return pujas == 1;
             }
 
             /**
@@ -105,7 +120,6 @@ public class SellerAgent extends Agent {
 
                         else if (msg.getPerformative() == ACLMessage.CANCEL)  // Si es una cancelación
                             desuscripcionSubasta(msg);
-
                     } else {
                         return;
                     }
@@ -180,17 +194,45 @@ public class SellerAgent extends Agent {
 
             // Funciones de gestión de subastas
 
-            private void procesarColaMensajes(Subasta subasta) {
-                ArrayList<ACLMessage> consumidos = new ArrayList<>();
+            /**
+             * Procesa los mensajes de la cola de mensajes que corresponden a la subasta. Solo debería haber pujas.
+             * Acepta la primera puja a un precio, rechaza las demás.
+             * Actualiza la interfaz gráfica.
+             * @param subasta
+             */
+            private void procesarColaPujas(Subasta subasta) {
+                Boolean primero = true;
+                ArrayList<ACLMessage> consumidos = new ArrayList<>(); // Mensajes consumidos, para eliminar
                 for (ACLMessage mensaje : colaMensajes) {
                     // Mensajes con formato "Subasta N: Puja: X"
+                    // Comprobamos si el mensaje es una puja y si es de la subasta actual
                     if (mensaje.getPerformative() == ACLMessage.PROPOSE && mensaje.getContent().split(":")[0].equals(subasta.getNombre())) {
                         String contenido = mensaje.getContent();
+
+                        // Si el mensaje es una puja
                         if (contenido.split(":")[1].equals(" Puja")) {
                             double puja = Double.parseDouble(contenido.split(": ")[2]);
 
                             // Guardamos la puja
                             subasta.getPujas().add(mensaje);
+
+                            // Si es la primera puja a ese precio en esa subasta; aceptamos
+                            if (primero) {
+                                primero = false;
+                                // Reply a mensaje
+                                ACLMessage reply = mensaje.createReply();
+                                reply.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
+                                reply.setContent(subasta.getNombre()+": ACCEPT: " + puja);
+                                send(reply);
+                            }
+                            //Si no, rechazamos
+                            else {
+                                ACLMessage reply = mensaje.createReply();
+                                reply.setPerformative(ACLMessage.REJECT_PROPOSAL);
+                                reply.setContent(subasta.getNombre()+": REJECT: " + puja);
+                                send(reply);
+                            }
+
 
                             // Actualizamos la interfaz gráfica si la subasta está seleccionada
                             if (subasta.equals(subastaSeleccionada))
@@ -244,6 +286,10 @@ public class SellerAgent extends Agent {
             }
             }
 
+            /**
+             * Envía el precio actual a los compradores suscritos a la subasta
+             * @param subasta
+             */
             private void envioPrecio(Subasta subasta) {
                 // Enviamos CFP del precio a los compradores registrados
                 ACLMessage cfpPrecio = new ACLMessage(ACLMessage.CFP);
@@ -263,7 +309,7 @@ public class SellerAgent extends Agent {
              * Inicia la transacción de compra
              * @param subasta
              */
-            private void finalizar(Subasta subasta){
+            private void finalizar(Subasta subasta){ // todo comprbar tras rework
                 // Avisamos que no hay pujas a este precio
                 controller.añadirPuja("No hay ninguna puja a: ", subasta.getPrecioActual()-subasta.getIncremento());
 

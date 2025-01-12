@@ -19,7 +19,7 @@ public class Subasta {
     private boolean pujaRecibida = true;
     private Estados estado = Estados.ACTIVA;
     private ArrayList<ACLMessage> mensajesExternos = new ArrayList<>();
-    private AID ganador;
+    private AID ganador; // Ganador de la subasta en cada momento
 
 
     public double getPrecioActual() {
