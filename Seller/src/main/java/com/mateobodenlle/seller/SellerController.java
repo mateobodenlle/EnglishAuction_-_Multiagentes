@@ -45,6 +45,14 @@ public class SellerController {
     public Button buttonEliminarSubasta;
     @FXML
     public Button buttonGestionar;
+    @FXML
+    public Label labelPaso;
+    @FXML
+    public com.gluonhq.charm.glisten.control.TextField textFieldPaso;
+    @FXML
+    public Button buttonSetPrecioInicial;
+    @FXML
+    public Button buttonSetPaso;
 
 
     /**
@@ -68,10 +76,15 @@ public class SellerController {
     @FXML
     protected void onButtonGestionarClick() {
         sellerAgent.gestionarSubasta(listSubastas.getSelectionModel().getSelectedItem());
+        Platform.runLater(() -> buttonSetPaso.setDisable(false));
         // Solo si está sin empezar
         if (sellerAgent.getSubastaSeleccionada().getPrecioActual() == sellerAgent.getSubastaSeleccionada().getPrecioInicial())
             Platform.runLater(() -> buttonEmpezarSubasta.setDisable(false));
         Platform.runLater(() -> textFieldPrecioInicial.setDisable(false));
+        Platform.runLater(() -> buttonSetPrecioInicial.setDisable(false));
+        Platform.runLater(() -> buttonSetPaso.setDisable(false));
+        Platform.runLater(() -> textFieldPaso.setDisable(false));
+
     }
 
     /**
@@ -93,6 +106,25 @@ public class SellerController {
         buttonEmpezarSubasta.setDisable(true);
         textFieldPrecioInicial.setDisable(true);
     }
+
+    /**
+     * Método que se ejecuta al pulsar el botón "Set precio inicial". Establece el precio inicial de la subasta seleccionada
+     */
+    @FXML
+    protected void onButtonSetPrecioInicialClick() {
+        sellerAgent.setPrecioInicial(Double.parseDouble(textFieldPrecioInicial.getText()));
+        // Actualizamos label de precio actual
+        labelPrecioActual.setText("Precio actual: " + textFieldPrecioInicial.getText());
+    }
+
+    /**
+     * Método que se ejecuta al pulsar el botón "Set paso". Establece el paso de la subasta seleccionada
+     */
+    @FXML
+    protected void onButtonSetPasoClick() {
+        sellerAgent.setPaso(listSubastas.getSelectionModel().getSelectedItem(), Double.parseDouble(textFieldPaso.getText()));
+    }
+
 
     /**
      * Método que se ejecuta al ser llamado por el agente. Actualiza el precio actual de la subasta seleccionada en la interfaz gráfica.
@@ -145,6 +177,9 @@ public class SellerController {
                 buttonEliminarSubasta.setDisable(true);
             }
         });
+
+        buttonSetPaso.setDisable(true);
+        buttonSetPrecioInicial.setDisable(true);
     }
 
     public static SellerController getInstance() {

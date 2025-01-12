@@ -5,6 +5,7 @@ import jade.core.AID;
 import jade.core.behaviours.TickerBehaviour;
 import jade.lang.acl.ACLMessage;
 
+import java.lang.reflect.Array;
 import java.util.*;
 
 // Importamos la clase subasta compartida entre seller y buyer
@@ -14,8 +15,6 @@ import javafx.application.Platform;
 
 public class SellerAgent extends Agent {
     private ArrayList<ACLMessage> colaMensajes = new ArrayList<>();
-    private double precioActual = 20.0; // todo remove
-    private double incremento = 10.0;
     private Set<AID> compradoresRegistrados = new HashSet<>();
     /**
      * Lista de subastas del vendedor. El resto de la información encapsulada en cada subasta.
@@ -34,7 +33,7 @@ public class SellerAgent extends Agent {
     public void iniciarSubasta() {
         subastaSeleccionada.setActivacion(true);
         subastaSeleccionada.setEstado(Subasta.Estados.ACTIVA);
-        controller.actualizarPrecio(String.valueOf(precioActual));
+        controller.actualizarPrecio(String.valueOf(subastaSeleccionada.getPrecioInicial()));
     }
 
     @Override
@@ -82,7 +81,7 @@ public class SellerAgent extends Agent {
                     procesarColaMensajes(subasta);
 
                     // Actualizamos el precio actual
-                    subasta.actualizarPrecio(incremento);
+                    subasta.actualizarPrecio(subasta.getIncremento());
                 }
             }
 
@@ -166,10 +165,16 @@ public class SellerAgent extends Agent {
                 controller.añadirComprador(nuevoComprador.getLocalName());
 
                 // Le enviamos la lista de subastas todo gestionar recibo de subastas
-                ACLMessage subastas = new ACLMessage(ACLMessage.INFORM);
-                subastas.setContent("Subastas: " + Arrays.toString(getSubastas()));
-                subastas.addReceiver(nuevoComprador);
-                send(subastas);
+                ACLMessage Msubastas = new ACLMessage(ACLMessage.INFORM);
+                // Formato de mensaje "Subastas: [nombreSubasta, nombreSubasta2...]"
+                String stringSubastas = "[";
+                for (Subasta subasta : subastas) {
+                    stringSubastas += subasta.getNombre() + ", ";
+                }
+
+                Msubastas.setContent("Subastas: " + stringSubastas + "]");
+                Msubastas.addReceiver(nuevoComprador);
+                send(Msubastas);
             }
 
 
@@ -260,7 +265,7 @@ public class SellerAgent extends Agent {
              */
             private void finalizar(Subasta subasta){
                 // Avisamos que no hay pujas a este precio
-                controller.añadirPuja("No hay ninguna puja a: ", subasta.getPrecioActual()-incremento);
+                controller.añadirPuja("No hay ninguna puja a: ", subasta.getPrecioActual()-subasta.getIncremento());
 
                 // Actualizamos el estado de la subasta
                 subasta.setEstado(Subasta.Estados.FINALIZADA);
@@ -275,7 +280,7 @@ public class SellerAgent extends Agent {
                 } else {
                     ganador = null;
                 }
-                subasta.setPrecioActual(subasta.getPrecioActual()-incremento);
+                subasta.setPrecioActual(subasta.getPrecioActual()-subasta.getIncremento());
 
                 // Notificamos
                 notificarResultado(subasta, pujaGanadora, ganador);
@@ -286,7 +291,7 @@ public class SellerAgent extends Agent {
 
                 // Actualizamos gráfico
                 if (subasta.equals(subastaSeleccionada)) {
-                    controller.precioFinal(String.valueOf(subasta.getPrecioActual() - incremento));
+                    controller.precioFinal(String.valueOf(subasta.getPrecioActual() - subasta.getIncremento()));
                     Platform.runLater(() -> controller.labelEstado.setText("FINALIZADA"));
                     if (ganador != null)
                         Platform.runLater(() -> controller.labelGanador.setText("Ganador: " + ganador.getLocalName()));
@@ -313,7 +318,7 @@ public class SellerAgent extends Agent {
                     double precioPropuesta = Double.parseDouble(propuesta.getContent().split(": ")[2]);
                     // Comprobamos si la puja es la ganadora (primer puja a máximo precio) y si el comprador está registrado en la subasta
 
-                    if (precioPropuesta == (subasta.getPrecioActual()-2*incremento)) {
+                    if (precioPropuesta == (subasta.getPrecioActual()-2*subasta.getIncremento())){
                         System.out.println("PUJA GANADORA: " + propuesta.getContent());
                         // Cuando un comprador se desuscribe NO se anulan sus pujas.
                         pujaGanadora = propuesta;
@@ -367,7 +372,7 @@ public class SellerAgent extends Agent {
             private void iniciarTransaccion(ACLMessage pujaGanadora, Subasta subasta) {
                 // Iniciar transacción
                 ACLMessage transaccion = new ACLMessage(ACLMessage.REQUEST);
-                transaccion.setContent("Transaccion de\n" + pujaGanadora.getSender().getLocalName() + " por " + (subasta.getPrecioActual()-incremento));
+                transaccion.setContent("Transaccion de\n" + pujaGanadora.getSender().getLocalName() + " por " + (subasta.getPrecioActual()-subasta.getIncremento()));
                 transaccion.addReceiver(pujaGanadora.getSender());
                 send(transaccion);
             }
@@ -395,7 +400,7 @@ public class SellerAgent extends Agent {
     public String nuevaSubasta() {
         // Creamos una nueva subasta
         String nombre = "Subasta " + subastas.size();
-        Subasta subasta = new Subasta(nombre, precioActual);
+        Subasta subasta = new Subasta(nombre, 80.0);
         subastas.add(subasta);
 
         // Avisamos a los compradores de la nueva subasta
@@ -456,7 +461,25 @@ public class SellerAgent extends Agent {
         this.subastaSeleccionada = subastaSeleccionada;
     }
 
-    public Subasta[] getSubastas() { //todo revisar
-        return subastas.toArray(new Subasta[0]);
+    public ArrayList<Subasta> getSubastas() { //todo revisar
+        return subastas;
+    }
+
+    public void setPrecioInicial(double v) {
+        try {
+            subastaSeleccionada.setPrecioInicial(v);
+            subastaSeleccionada.setPrecioActual(v);
+        } catch (Exception e) {
+            System.out.println("Error al actualizar precio inicial");
+        }
+    }
+
+    public void setPaso(String selectedItem, double v) {
+        try {
+            subastaSeleccionada.setIncremento(v);
+        }
+        catch (Exception e) {
+            System.out.println("Error al actualizar paso");
+        }
     }
 }

@@ -12,6 +12,7 @@ public class Subasta {
     private String nombre;
     private double precioInicial;
     private double precioActual;
+    private double incremento;
     private Set<AID> participantes = new HashSet<>();
     private ArrayList<ACLMessage> pujas = new ArrayList<>(); // Registro de pujas
     private boolean subastaActiva = false;
@@ -90,6 +91,14 @@ public class Subasta {
 
     public String getNombre() {
         return nombre;
+    }
+
+    public double getIncremento() {
+        return incremento;
+    }
+
+    public void setIncremento(double incremento) {
+        this.incremento = incremento;
     }
 
     public boolean getPujaRecibida() {
